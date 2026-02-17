@@ -4,7 +4,15 @@ import { Product, Transaction } from "../types";
 import { Language } from "../translations";
 
 // Initialize GoogleGenAI with exactly process.env.API_KEY as per guidelines
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+// Added safe check for process.env
+const getAI = () => {
+  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : null;
+  if (!apiKey) {
+    console.warn("API_KEY is missing from process.env. Gemini features will be disabled.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey: apiKey as string });
+};
 
 export interface AIAnalysisResult {
   summary: string;
@@ -24,6 +32,13 @@ export interface AIAnalysisResult {
 
 export const getInventoryInsights = async (products: Product[], transactions: Transaction[], lang: Language): Promise<AIAnalysisResult> => {
   const ai = getAI();
+  
+  if (!ai) {
+    return {
+      summary: lang === 'bn' ? "AI সার্ভিস পাওয়া যাচ্ছে না। অনুগ্রহ করে কনফিগারেশন চেক করুন।" : "AI service unavailable. Please check configuration.",
+      insights: []
+    };
+  }
   
   const languageName = lang === 'bn' ? 'Bengali' : lang === 'hi' ? 'Hindi' : 'English';
   
