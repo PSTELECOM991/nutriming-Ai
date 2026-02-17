@@ -152,7 +152,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction
                   )}
                 </td>
                 <td className="px-6 py-4 text-slate-900 font-bold text-sm">
-                  ₹${product.sellingPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  ₹{product.sellingPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -3,7 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Product, Transaction } from "../types";
 import { Language } from "../translations";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Initialize GoogleGenAI with exactly process.env.API_KEY as per guidelines
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 export interface AIAnalysisResult {
   summary: string;
