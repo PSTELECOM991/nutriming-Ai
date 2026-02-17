@@ -203,7 +203,7 @@ export const translations = {
     pull: "पुल (Pull)",
     localExport: "लोकल एक्सपोर्ट",
     localRestore: "लोकल रिस्टोर",
-    logout: "लॉगआउट",
+    logout: "लगतआउट",
     language: "भाषा",
     appearance: "दिखावट (Appearance)",
     showCostGlobal: "विश्व स्तर पर खरीद मूल्य दिखाएं",
