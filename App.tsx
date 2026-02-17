@@ -11,10 +11,16 @@ import * as driveService from './services/driveService';
 import { supabase, fetchProducts, fetchTransactions, upsertProduct, logTransaction } from './services/supabaseService';
 import { translations, Language } from './translations';
 
+type Theme = 'light' | 'dark' | 'system';
+
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>(() => {
     const saved = localStorage.getItem('app_lang');
     return (saved as Language) || 'en';
+  });
+
+  const [theme, setTheme] = useState<Theme>(() => {
+    return (localStorage.getItem('app_theme') as Theme) || 'system';
   });
 
   const [showWelcome, setShowWelcome] = useState<boolean>(() => {
@@ -28,7 +34,7 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingDB, setIsLoadingDB] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'inventory' | 'history' | 'analysis'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'inventory' | 'history' | 'analysis' | 'settings'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [modalType, setModalType] = useState<'STOCK_ACTION' | 'PRODUCT_FORM' | 'FIND_PRODUCT'>('STOCK_ACTION');
@@ -39,13 +45,52 @@ const App: React.FC = () => {
   const [finderQuery, setFinderQuery] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
+  const [globalShowCost, setGlobalShowCost] = useState(() => {
+    return localStorage.getItem('global_show_cost') === 'true';
+  });
   const [formShowCost, setFormShowCost] = useState(false);
-  const [driveLinked, setDriveLinked] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
-  const profileRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Apply Theme logic
+  useEffect(() => {
+    const root = window.document.documentElement;
+    const applyTheme = (t: 'light' | 'dark') => {
+      root.classList.remove('light', 'dark');
+      root.classList.add(t);
+      // Also update body background for consistent look
+      document.body.className = t === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900';
+    };
+
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      applyTheme(systemTheme);
+    } else {
+      applyTheme(theme);
+    }
+    localStorage.setItem('app_theme', theme);
+  }, [theme]);
+
+  // Close profile menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('app_lang', lang);
+  }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('global_show_cost', String(globalShowCost));
+  }, [globalShowCost]);
 
   // Sync with Supabase on Mount
   useEffect(() => {
@@ -102,22 +147,20 @@ const App: React.FC = () => {
       
       const now = ctx.currentTime;
       
-      // Primary Chime Tone
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(880, now); // A5
+      osc1.frequency.setValueAtTime(880, now);
       gain1.gain.setValueAtTime(0, now);
       gain1.gain.linearRampToValueAtTime(0.12, now + 0.02);
       gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
       osc1.connect(gain1);
       gain1.connect(ctx.destination);
       
-      // Higher Harmonic (The "Ring")
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(1760, now + 0.08); // A6
+      osc2.frequency.setValueAtTime(1760, now + 0.08);
       gain2.gain.setValueAtTime(0, now + 0.08);
       gain2.gain.linearRampToValueAtTime(0.08, now + 0.1);
       gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
@@ -151,7 +194,7 @@ const App: React.FC = () => {
 
   const openProductForm = (product: Product | null = null) => {
     setSelectedProduct(product);
-    setFormShowCost(false);
+    setFormShowCost(globalShowCost);
     setModalType('PRODUCT_FORM');
     setIsModalOpen(true);
   };
@@ -170,7 +213,6 @@ const App: React.FC = () => {
       ? product.quantity + amount 
       : Math.max(0, product.quantity - amount);
 
-    // Play "Product Sell Out Tune" when stock goes out
     if (stockActionType === TransactionType.OUT && amount > 0) playChaChing();
     
     const updatedProduct = { 
@@ -194,7 +236,6 @@ const App: React.FC = () => {
     try {
       await upsertProduct(updatedProduct);
       await logTransaction(newTx);
-      // Optimistic update
       setProducts(prev => prev.map(p => p.id === productId ? updatedProduct : p));
       setTransactions(prev => [newTx, ...prev]);
     } catch (e) {
@@ -268,7 +309,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 md:flex-row font-sans overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 md:flex-row font-sans overflow-hidden transition-colors duration-300">
       <input type="file" ref={fileInputRef} className="hidden" />
 
       <aside className="w-64 bg-slate-900 text-slate-300 hidden md:flex flex-col p-4 shrink-0 shadow-xl">
@@ -290,25 +331,57 @@ const App: React.FC = () => {
       </aside>
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-        <header className="h-20 md:h-24 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-10 sticky top-0 z-30 shrink-0">
+        <header className="h-20 md:h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-10 sticky top-0 z-30 shrink-0 transition-colors">
           <div className="flex items-center gap-4">
-             <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight hidden sm:block">
-                {activeTab === 'analysis' ? t.analysis : navItems.find(n => n.id === activeTab)?.label}
+             <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight hidden sm:block">
+                {activeTab === 'analysis' ? t.analysis : (activeTab === 'settings' ? t.settings : navItems.find(n => n.id === activeTab)?.label)}
               </h2>
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isLoadingDB ? 'bg-blue-500 animate-bounce' : isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isLoadingDB ? 'Syncing...' : isOnline ? 'Cloud Active' : 'Offline'}</p>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{isLoadingDB ? 'Syncing...' : isOnline ? 'Cloud Active' : 'Offline'}</p>
               </div>
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={openFinder} className="p-3 text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200 shadow-sm transition-all">
+            <button onClick={openFinder} className="p-3 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 shadow-sm transition-all">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </button>
             <button onClick={() => openProductForm()} className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all" title={t.addProduct}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
             </button>
-            <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-700 font-bold border-2 border-white shadow-sm transition-all">PS</button>
+            
+            <div className="relative" ref={profileMenuRef}>
+              <button 
+                onClick={() => setIsProfileOpen(!isProfileOpen)} 
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm ${isProfileOpen ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-white dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+              >
+                PS
+              </button>
+              
+              {isProfileOpen && (
+                <div className="absolute right-0 mt-3 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                  <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700 mb-1">
+                    <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Admin User</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">PS Telecom</p>
+                  </div>
+                  
+                  <button 
+                    onClick={() => { setActiveTab('settings'); setIsProfileOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    {t.settings}
+                  </button>
+                  
+                  <button 
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                    {t.logout}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -324,38 +397,146 @@ const App: React.FC = () => {
               {activeTab === 'inventory' && <InventoryTable products={products} onStockAction={(id, type) => openStockAction(type as TransactionType, products.find(p => p.id === id))} onEdit={(p) => openProductForm(p)} lang={lang} />}
               {activeTab === 'history' && <HistoryLog transactions={transactions} lang={lang} />}
               {activeTab === 'analysis' && <AIAnalysis data={aiAnalysis} isLoading={isGeneratingInsights} onRefresh={runAnalysis} isOnline={isOnline} lang={lang} />}
+              {activeTab === 'settings' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   {/* Language Settings Card */}
+                   <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-8 shadow-sm transition-colors">
+                     <div className="flex items-center gap-4 mb-8">
+                       <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 11.37 9.198 15.53 3 18.054" /></svg>
+                       </div>
+                       <div>
+                         <h3 className="text-xl font-black text-slate-900 dark:text-white">{t.language}</h3>
+                         <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">Choose your preferred system language</p>
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                          { id: 'en', label: 'English', sub: 'Default' },
+                          { id: 'bn', label: 'বাংলা', sub: 'Bengali' },
+                          { id: 'hi', label: 'हिन्दी', sub: 'Hindi' }
+                        ].map((l) => (
+                          <button 
+                            key={l.id}
+                            onClick={() => setLang(l.id as any)}
+                            className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-1 ${lang === l.id ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 bg-slate-50 dark:bg-slate-800'}`}
+                          >
+                            <span className="text-lg font-black text-slate-800 dark:text-slate-100">{l.label}</span>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{l.sub}</span>
+                          </button>
+                        ))}
+                     </div>
+                   </div>
+
+                   {/* Theme Settings Card */}
+                   <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-8 shadow-sm transition-colors">
+                     <div className="flex items-center gap-4 mb-8">
+                       <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                       </div>
+                       <div>
+                         <h3 className="text-xl font-black text-slate-900 dark:text-white">{t.theme}</h3>
+                         <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">Select your visual mood preference</p>
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                          { id: 'light', label: t.themeLight, icon: 'M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
+                          { id: 'dark', label: t.themeDark, icon: 'M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z' },
+                          { id: 'system', label: t.themeSystem, icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' }
+                        ].map((item) => (
+                          <button 
+                            key={item.id}
+                            onClick={() => setTheme(item.id as Theme)}
+                            className={`p-6 rounded-3xl border-2 transition-all text-left flex items-center gap-4 ${theme === item.id ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 bg-slate-50 dark:bg-slate-800'}`}
+                          >
+                            <svg className={`w-6 h-6 ${theme === item.id ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} /></svg>
+                            <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">{item.label}</span>
+                          </button>
+                        ))}
+                     </div>
+                   </div>
+
+                   {/* Appearance Settings Card */}
+                   <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-8 shadow-sm transition-colors">
+                     <div className="flex items-center gap-4 mb-8">
+                       <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                       </div>
+                       <div>
+                         <h3 className="text-xl font-black text-slate-900 dark:text-white">{t.appearance}</h3>
+                         <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">Customize your workspace visibility</p>
+                       </div>
+                     </div>
+                     
+                     <label className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <div className="space-y-1">
+                          <p className="font-bold text-slate-800 dark:text-slate-100">{t.showCostGlobal}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Always reveal purchase prices by default</p>
+                        </div>
+                        <div className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" checked={globalShowCost} onChange={() => setGlobalShowCost(!globalShowCost)} className="sr-only peer" />
+                          <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                        </div>
+                     </label>
+                   </div>
+
+                   {/* About / Info Card */}
+                   <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-8 shadow-sm transition-colors">
+                     <div className="flex items-center gap-4 mb-6">
+                       <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl flex items-center justify-center font-black">?</div>
+                       <div>
+                         <h3 className="text-xl font-black text-slate-900 dark:text-white">{t.appInfo}</h3>
+                         <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">System specifications and status</p>
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t.developer}</p>
+                          <p className="font-bold text-slate-800 dark:text-slate-100">PS Telecom Team</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t.version}</p>
+                          <p className="font-bold text-slate-800 dark:text-slate-100">2.6.0-Pro</p>
+                        </div>
+                     </div>
+                   </div>
+                </div>
+              )}
             </>
           )}
         </div>
 
         {/* Floating Quick Action Bar at Bottom Middle */}
-        <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 p-2 bg-white/90 backdrop-blur-xl rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-blue-500/15 animate-in slide-in-from-bottom-8 duration-500">
-          <button 
-            onClick={() => openStockAction(TransactionType.IN)}
-            className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 active:scale-95 transition-all group"
-          >
-            <div className="bg-white/20 p-1 rounded-full group-hover:rotate-90 transition-transform">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M12 4v16m8-8H4" /></svg>
-            </div>
-            <span className="text-xs font-black uppercase tracking-widest">{t.stockIn}</span>
-          </button>
-          
-          <div className="w-px h-6 bg-slate-200" />
-          
-          <button 
-            onClick={() => openStockAction(TransactionType.OUT)}
-            className="flex items-center gap-2 px-5 py-3 bg-amber-500 text-white rounded-full hover:bg-amber-600 shadow-lg shadow-amber-500/25 active:scale-95 transition-all group"
-          >
-            <div className="bg-white/20 p-1 rounded-full">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M20 12H4" /></svg>
-            </div>
-            <span className="text-xs font-black uppercase tracking-widest">{t.stockOut}</span>
-          </button>
-        </div>
+        {(activeTab !== 'settings') && (
+          <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl shadow-blue-500/15 animate-in slide-in-from-bottom-8 duration-500">
+            <button 
+              onClick={() => openStockAction(TransactionType.IN)}
+              className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 active:scale-95 transition-all group"
+            >
+              <div className="bg-white/20 p-1 rounded-full group-hover:rotate-90 transition-transform">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M12 4v16m8-8H4" /></svg>
+              </div>
+              <span className="text-xs font-black uppercase tracking-widest">{t.stockIn}</span>
+            </button>
+            
+            <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
+            
+            <button 
+              onClick={() => openStockAction(TransactionType.OUT)}
+              className="flex items-center gap-2 px-5 py-3 bg-amber-500 text-white rounded-full hover:bg-amber-600 shadow-lg shadow-amber-500/25 active:scale-95 transition-all group"
+            >
+              <div className="bg-white/20 p-1 rounded-full">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M20 12H4" /></svg>
+              </div>
+              <span className="text-xs font-black uppercase tracking-widest">{t.stockOut}</span>
+            </button>
+          </div>
+        )}
 
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-200 h-20 flex items-center justify-around px-4 z-40">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 h-20 flex items-center justify-around px-4 z-40 transition-colors">
           {navItems.map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-all ${activeTab === item.id ? 'text-blue-600 scale-110' : 'text-slate-400 hover:text-slate-600'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-all ${activeTab === item.id ? 'text-blue-600 dark:text-blue-400 scale-110' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'}`}>
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} /></svg>
               <span className="text-[10px] font-black uppercase tracking-wider">{item.label}</span>
             </button>
@@ -365,16 +546,16 @@ const App: React.FC = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-6">
-          <div className="bg-white rounded-t-[40px] md:rounded-[40px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 md:animate-in md:fade-in md:zoom-in md:duration-200 max-h-[92vh] flex flex-col border border-white/20">
+          <div className="bg-white dark:bg-slate-900 rounded-t-[40px] md:rounded-[40px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 md:animate-in md:fade-in md:zoom-in md:duration-200 max-h-[92vh] flex flex-col border border-white/20 dark:border-slate-800 transition-colors">
             <div className={`h-2.5 shrink-0 ${modalType === 'STOCK_ACTION' ? (stockActionType === TransactionType.IN ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-blue-500'}`} />
             <div className="p-8 md:p-10 overflow-y-auto">
               <div className="flex justify-between items-start mb-8">
                 <div>
-                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                     {modalType === 'STOCK_ACTION' ? `${stockActionType === TransactionType.IN ? t.stockIn : t.stockOut}` : (modalType === 'FIND_PRODUCT' ? t.quickFind : (selectedProduct ? t.editProduct : t.addProduct))}
                   </h3>
                 </div>
-                <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-2xl transition-all">
+                <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-2xl transition-all">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -393,53 +574,53 @@ const App: React.FC = () => {
                   <div className="space-y-6">
                     {!selectedProduct ? (
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.tableHeaderProduct}</label>
-                        <select name="productId" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl appearance-none font-bold text-slate-800 focus:border-blue-500/30 outline-none transition-all" onChange={(e) => setSelectedProduct(products.find(prod => prod.id === e.target.value) || null)}>
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.tableHeaderProduct}</label>
+                        <select name="productId" required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl appearance-none font-bold text-slate-800 dark:text-white focus:border-blue-500/30 outline-none transition-all" onChange={(e) => setSelectedProduct(products.find(prod => prod.id === e.target.value) || null)}>
                           <option value="">Select Product</option>
                           {products.map(p => <option key={p.id} value={p.id}>{p.name} • {p.sku}</option>)}
                         </select>
                       </div>
                     ) : (
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Selected Product</p>
-                        <p className="font-bold text-slate-800">{selectedProduct.name}</p>
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Selected Product</p>
+                        <p className="font-bold text-slate-800 dark:text-white">{selectedProduct.name}</p>
                         <input type="hidden" name="productId" value={selectedProduct.id} />
                       </div>
                     )}
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                        <div>
-                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.tableHeaderStock}</label>
-                          <input name="amount" type="number" required min="1" className={`w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-2xl font-black focus:outline-none transition-all ${stockActionType === TransactionType.IN ? 'focus:border-emerald-500/30 text-emerald-600' : 'focus:border-amber-500/30 text-amber-600'}`} placeholder="0" autoFocus />
+                          <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.tableHeaderStock}</label>
+                          <input name="amount" type="number" required min="1" className={`w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl text-2xl font-black focus:outline-none transition-all ${stockActionType === TransactionType.IN ? 'focus:border-emerald-500/30 text-emerald-600' : 'focus:border-amber-500/30 text-amber-600'}`} placeholder="0" autoFocus />
                        </div>
                        <div>
-                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.boxNumber}</label>
-                          <input name="newBoxNumber" type="text" defaultValue={selectedProduct?.boxNumber} className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" />
+                          <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.boxNumber}</label>
+                          <input name="newBoxNumber" type="text" defaultValue={selectedProduct?.boxNumber} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" />
                        </div>
                     </div>
                     <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.reason}</label>
-                        <input name="reason" type="text" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. Sales, Return, Damaged" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.reason}</label>
+                        <input name="reason" type="text" required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. Sales, Return, Damaged" />
                     </div>
                   </div>
                   <div className="flex gap-4 mt-12">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-5 text-slate-400 font-black uppercase text-xs">{t.dismiss}</button>
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-5 text-slate-400 dark:text-slate-500 font-black uppercase text-xs">{t.dismiss}</button>
                     <button type="submit" className={`flex-1 px-6 py-5 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-95 ${stockActionType === TransactionType.IN ? 'bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600' : 'bg-amber-500 shadow-amber-500/30 hover:bg-amber-600'}`}>{t.commit}</button>
                   </div>
                 </form>
               ) : modalType === 'FIND_PRODUCT' ? (
                 <div className="space-y-6">
-                  <input autoFocus type="text" className="w-full pl-6 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[30px] text-xl font-bold outline-none focus:border-blue-500/30 transition-all" placeholder={t.searchPlaceholder} value={finderQuery} onChange={(e) => setFinderQuery(e.target.value)} />
-                  <div className="divide-y divide-slate-100">
+                  <input autoFocus type="text" className="w-full pl-6 pr-6 py-5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[30px] text-xl font-bold outline-none dark:text-white focus:border-blue-500/30 transition-all" placeholder={t.searchPlaceholder} value={finderQuery} onChange={(e) => setFinderQuery(e.target.value)} />
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700">
                     {filteredFinderProducts.map(p => (
                       <div key={p.id} className="py-5 flex items-center justify-between">
                         <div>
-                          <p className="font-black text-slate-900">{p.name}</p>
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{p.sku}</span>
+                          <p className="font-black text-slate-900 dark:text-white">{p.name}</p>
+                          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded uppercase">{p.sku}</span>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => openStockAction(TransactionType.IN, p)} className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xl hover:bg-emerald-500 hover:text-white transition-all">+</button>
-                          <button onClick={() => openStockAction(TransactionType.OUT, p)} className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl font-black text-xl hover:bg-amber-500 hover:text-white transition-all">-</button>
+                          <button onClick={() => openStockAction(TransactionType.IN, p)} className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-xl hover:bg-emerald-500 hover:text-white transition-all">+</button>
+                          <button onClick={() => openStockAction(TransactionType.OUT, p)} className="w-10 h-10 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl font-black text-xl hover:bg-amber-500 hover:text-white transition-all">-</button>
                         </div>
                       </div>
                     ))}
@@ -464,36 +645,36 @@ const App: React.FC = () => {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.productName}</label>
-                        <input name="name" defaultValue={selectedProduct?.name} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. iPhone 15 Pro Max" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.productName}</label>
+                        <input name="name" defaultValue={selectedProduct?.name} required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. iPhone 15 Pro Max" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.sku}</label>
-                        <input name="sku" defaultValue={selectedProduct?.sku} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-mono focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. SKU-1001" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.sku}</label>
+                        <input name="sku" defaultValue={selectedProduct?.sku} required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-mono dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. SKU-1001" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.category}</label>
-                        <input name="category" defaultValue={selectedProduct?.category} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. Mobile" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.category}</label>
+                        <input name="category" defaultValue={selectedProduct?.category} required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. Mobile" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.boxNumber}</label>
-                        <input name="boxNumber" defaultValue={selectedProduct?.boxNumber} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. B-12" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.boxNumber}</label>
+                        <input name="boxNumber" defaultValue={selectedProduct?.boxNumber} required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. B-12" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.minAlert}</label>
-                        <input name="threshold" type="number" defaultValue={selectedProduct?.minThreshold} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. 5" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.minAlert}</label>
+                        <input name="threshold" type="number" defaultValue={selectedProduct?.minThreshold} required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. 5" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
                       <div>
                         <div className="flex justify-between items-center mb-3">
-                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest">{t.costPrice}</label>
+                          <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t.costPrice}</label>
                           <button 
                             type="button" 
                             onClick={() => setFormShowCost(!formShowCost)} 
-                            className="text-[9px] font-black text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-md hover:bg-blue-100 transition-colors"
+                            className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                           >
                             {formShowCost ? 'Hide' : 'Show'}
                           </button>
@@ -504,24 +685,24 @@ const App: React.FC = () => {
                           step="0.01" 
                           defaultValue={selectedProduct?.purchasePrice} 
                           required 
-                          className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" 
+                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" 
                           placeholder="0.00" 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.sellPrice}</label>
-                        <input name="sellingPrice" type="number" step="0.01" defaultValue={selectedProduct?.sellingPrice} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="0.00" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.sellPrice}</label>
+                        <input name="sellingPrice" type="number" step="0.01" defaultValue={selectedProduct?.sellingPrice} required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="0.00" />
                       </div>
                     </div>
                     {!selectedProduct && (
                       <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.initialQty}</label>
-                        <input name="initialStock" type="number" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="0" />
+                        <label className="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t.initialQty}</label>
+                        <input name="initialStock" type="number" required className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold dark:text-white focus:border-blue-500/30 outline-none transition-all" placeholder="0" />
                       </div>
                     )}
                   </div>
                   <div className="flex gap-4 mt-12">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-5 text-slate-400 font-black uppercase text-xs hover:text-slate-900 transition-colors">{t.cancel}</button>
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-5 text-slate-400 dark:text-slate-500 font-black uppercase text-xs hover:text-slate-900 dark:hover:text-white transition-colors">{t.cancel}</button>
                     <button type="submit" className="flex-1 px-6 py-5 bg-blue-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95">{t.save}</button>
                   </div>
                 </form>

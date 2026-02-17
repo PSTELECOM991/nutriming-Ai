@@ -11,6 +11,7 @@ export const translations = {
     inventory: "Stock",
     history: "History",
     analysis: "AI Analysis",
+    settings: "Settings",
     statsTotal: "Total Items",
     statsLow: "Low Stock",
     statsEmpty: "Out of Stock",
@@ -61,7 +62,16 @@ export const translations = {
     localExport: "Local Export",
     localRestore: "Local Restore",
     logout: "Logout",
-    language: "Language"
+    language: "Language",
+    appearance: "Appearance",
+    showCostGlobal: "Show Purchase Price Globally",
+    appInfo: "App Information",
+    developer: "Developer",
+    version: "Version",
+    theme: "Theme",
+    themeLight: "Light Mode",
+    themeDark: "Dark Mode",
+    themeSystem: "System Default"
   },
   bn: {
     appTitle: "ইনভেন্টরি মাস্টার",
@@ -72,6 +82,7 @@ export const translations = {
     inventory: "স্টক",
     history: "ইতিহাস",
     analysis: "AI বিশ্লেষণ",
+    settings: "সেটিংস",
     statsTotal: "মোট আইটেম",
     statsLow: "কম স্টক",
     statsEmpty: "স্টক শেষ",
@@ -122,7 +133,16 @@ export const translations = {
     localExport: "লোকাল এক্সপোর্ট",
     localRestore: "লোকাল রিস্টোর",
     logout: "লগআউট",
-    language: "ভাষা"
+    language: "ভাষা",
+    appearance: "চেহারা (Appearance)",
+    showCostGlobal: "সব জায়গায় কেনা দাম দেখান",
+    appInfo: "অ্যাপ তথ্য",
+    developer: "ডেভেলপার",
+    version: "ভার্সন",
+    theme: "থিম",
+    themeLight: "লাইট মোড",
+    themeDark: "ডার্ক মোড",
+    themeSystem: "সিস্টেম ডিফল্ট"
   },
   hi: {
     appTitle: "इन्वेंटरी मास्टर",
@@ -133,6 +153,7 @@ export const translations = {
     inventory: "स्टॉक",
     history: "इतिहास",
     analysis: "AI विश्लेषण",
+    settings: "सेटिंग्स",
     statsTotal: "कुल आइटम",
     statsLow: "कम स्टॉक",
     statsEmpty: "आउट ऑफ स्टॉक",
@@ -183,6 +204,15 @@ export const translations = {
     localExport: "लोकल एक्सपोर्ट",
     localRestore: "लोकल रिस्टोर",
     logout: "लॉगआउट",
-    language: "भाषा"
+    language: "भाषा",
+    appearance: "दिखावट (Appearance)",
+    showCostGlobal: "विश्व स्तर पर खरीद मूल्य दिखाएं",
+    appInfo: "ऐप की जानकारी",
+    developer: "डेवलपर",
+    version: "संस्करण",
+    theme: "थीम",
+    themeLight: "लाइट मोड",
+    themeDark: "डार्क मोड",
+    themeSystem: "सिस्टम डिफॉल्ट"
   }
 };

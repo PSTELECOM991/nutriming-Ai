@@ -1,10 +1,10 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
 // Polyfill for process.env which is required by some SDKs but missing in browser environments
-if (typeof window !== 'undefined' && !window.process) {
+// Fix: Use 'any' cast to access 'process' property on window to avoid TypeScript compilation errors
+if (typeof window !== 'undefined' && !(window as any).process) {
   (window as any).process = { env: {} };
 }
 

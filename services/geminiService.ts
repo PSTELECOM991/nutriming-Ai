@@ -1,18 +1,9 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Product, Transaction } from "../types";
 import { Language } from "../translations";
 
-// Initialize GoogleGenAI with exactly process.env.API_KEY as per guidelines
-// Added safe check for process.env
-const getAI = () => {
-  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : null;
-  if (!apiKey) {
-    console.warn("API_KEY is missing from process.env. Gemini features will be disabled.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey: apiKey as string });
-};
+// Fix: Strictly follow @google/genai guidelines for client initialization using process.env.API_KEY
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export interface AIAnalysisResult {
   summary: string;
@@ -31,15 +22,6 @@ export interface AIAnalysisResult {
 }
 
 export const getInventoryInsights = async (products: Product[], transactions: Transaction[], lang: Language): Promise<AIAnalysisResult> => {
-  const ai = getAI();
-  
-  if (!ai) {
-    return {
-      summary: lang === 'bn' ? "AI সার্ভিস পাওয়া যাচ্ছে না। অনুগ্রহ করে কনফিগারেশন চেক করুন।" : "AI service unavailable. Please check configuration.",
-      insights: []
-    };
-  }
-  
   const languageName = lang === 'bn' ? 'Bengali' : lang === 'hi' ? 'Hindi' : 'English';
   
   const context = `
@@ -62,6 +44,7 @@ export const getInventoryInsights = async (products: Product[], transactions: Tr
   `;
 
   try {
+    // Fix: Use ai.models.generateContent with both model name and prompt as per guidelines
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `You are an expert supply chain and financial analyst. Analyze the following inventory and transaction data. 
@@ -108,6 +91,7 @@ export const getInventoryInsights = async (products: Product[], transactions: Tr
       }
     });
 
+    // Fix: Access response.text as a property (not a method) as per @google/genai guidelines
     const result = JSON.parse(response.text || '{}');
     return {
       summary: result.summary || "Analysis complete.",
