@@ -135,7 +135,6 @@ const App: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  // Fixed error on line 277: Added missing openFinder function
   const openFinder = () => {
     setFinderQuery('');
     setModalType('FIND_PRODUCT');
@@ -271,7 +270,7 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         <header className="h-20 md:h-24 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-10 sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-4">
-             <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+             <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight hidden sm:block">
                 {activeTab === 'analysis' ? t.analysis : navItems.find(n => n.id === activeTab)?.label}
               </h2>
               <div className="flex items-center gap-2">
@@ -280,18 +279,18 @@ const App: React.FC = () => {
               </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <button onClick={openFinder} className="p-3 text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 md:gap-4">
+            <button onClick={openFinder} className="p-3 text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200 shadow-sm transition-all">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </button>
-            <button onClick={() => openProductForm()} className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 shadow-lg active:scale-95">
+            <button onClick={() => openProductForm()} className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all" title={t.addProduct}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
             </button>
-            <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-700 font-bold border-2 border-white shadow-sm">PS</button>
+            <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-700 font-bold border-2 border-white shadow-sm transition-all">PS</button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto pb-32 md:pb-12 p-4 md:p-10 max-w-7xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto pb-40 md:pb-24 p-4 md:p-10 max-w-7xl mx-auto w-full">
           {isLoadingDB ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
               <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
@@ -307,9 +306,34 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 h-20 flex items-center justify-around px-4 z-40">
+        {/* Floating Quick Action Bar at Bottom Middle */}
+        <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 p-2 bg-white/90 backdrop-blur-xl rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-blue-500/15 animate-in slide-in-from-bottom-8 duration-500">
+          <button 
+            onClick={() => openStockAction(TransactionType.IN)}
+            className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 active:scale-95 transition-all group"
+          >
+            <div className="bg-white/20 p-1 rounded-full group-hover:rotate-90 transition-transform">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M12 4v16m8-8H4" /></svg>
+            </div>
+            <span className="text-xs font-black uppercase tracking-widest">{t.stockIn}</span>
+          </button>
+          
+          <div className="w-px h-6 bg-slate-200" />
+          
+          <button 
+            onClick={() => openStockAction(TransactionType.OUT)}
+            className="flex items-center gap-2 px-5 py-3 bg-amber-500 text-white rounded-full hover:bg-amber-600 shadow-lg shadow-amber-500/25 active:scale-95 transition-all group"
+          >
+            <div className="bg-white/20 p-1 rounded-full">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M20 12H4" /></svg>
+            </div>
+            <span className="text-xs font-black uppercase tracking-widest">{t.stockOut}</span>
+          </button>
+        </div>
+
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-200 h-20 flex items-center justify-around px-4 z-40">
           {navItems.map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center justify-center w-full h-full gap-1 ${activeTab === item.id ? 'text-blue-600' : 'text-slate-400'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-all ${activeTab === item.id ? 'text-blue-600 scale-110' : 'text-slate-400 hover:text-slate-600'}`}>
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} /></svg>
               <span className="text-[10px] font-black uppercase tracking-wider">{item.label}</span>
             </button>
@@ -345,39 +369,45 @@ const App: React.FC = () => {
                   );
                 }}>
                   <div className="space-y-6">
-                    {!selectedProduct && (
+                    {!selectedProduct ? (
                       <div>
                         <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.tableHeaderProduct}</label>
-                        <select name="productId" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl appearance-none font-bold text-slate-800" onChange={(e) => setSelectedProduct(products.find(prod => prod.id === e.target.value) || null)}>
+                        <select name="productId" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl appearance-none font-bold text-slate-800 focus:border-blue-500/30 outline-none transition-all" onChange={(e) => setSelectedProduct(products.find(prod => prod.id === e.target.value) || null)}>
                           <option value="">Select Product</option>
                           {products.map(p => <option key={p.id} value={p.id}>{p.name} • {p.sku}</option>)}
                         </select>
                       </div>
+                    ) : (
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Selected Product</p>
+                        <p className="font-bold text-slate-800">{selectedProduct.name}</p>
+                        <input type="hidden" name="productId" value={selectedProduct.id} />
+                      </div>
                     )}
-                    {selectedProduct && <input type="hidden" name="productId" value={selectedProduct.id} />}
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                        <div>
                           <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.tableHeaderStock}</label>
-                          <input name="amount" type="number" required min="1" className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-2xl font-black text-slate-900" placeholder="0" />
+                          <input name="amount" type="number" required min="1" className={`w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-2xl font-black focus:outline-none transition-all ${stockActionType === TransactionType.IN ? 'focus:border-emerald-500/30 text-emerald-600' : 'focus:border-amber-500/30 text-amber-600'}`} placeholder="0" autoFocus />
                        </div>
                        <div>
                           <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.boxNumber}</label>
-                          <input name="newBoxNumber" type="text" defaultValue={selectedProduct?.boxNumber} className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" />
+                          <input name="newBoxNumber" type="text" defaultValue={selectedProduct?.boxNumber} className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" />
                        </div>
                     </div>
                     <div>
                         <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.reason}</label>
-                        <input name="reason" type="text" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" placeholder="e.g. Sales" />
+                        <input name="reason" type="text" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. Sales, Return, Damaged" />
                     </div>
                   </div>
                   <div className="flex gap-4 mt-12">
                     <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-5 text-slate-400 font-black uppercase text-xs">{t.dismiss}</button>
-                    <button type="submit" className={`flex-1 px-6 py-5 text-white font-black uppercase text-xs rounded-2xl shadow-xl ${stockActionType === TransactionType.IN ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-amber-500 shadow-amber-500/30'}`}>{t.commit}</button>
+                    <button type="submit" className={`flex-1 px-6 py-5 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-95 ${stockActionType === TransactionType.IN ? 'bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600' : 'bg-amber-500 shadow-amber-500/30 hover:bg-amber-600'}`}>{t.commit}</button>
                   </div>
                 </form>
               ) : modalType === 'FIND_PRODUCT' ? (
                 <div className="space-y-6">
-                  <input autoFocus type="text" className="w-full pl-6 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[30px] text-xl font-bold" placeholder={t.searchPlaceholder} value={finderQuery} onChange={(e) => setFinderQuery(e.target.value)} />
+                  <input autoFocus type="text" className="w-full pl-6 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[30px] text-xl font-bold outline-none focus:border-blue-500/30 transition-all" placeholder={t.searchPlaceholder} value={finderQuery} onChange={(e) => setFinderQuery(e.target.value)} />
                   <div className="divide-y divide-slate-100">
                     {filteredFinderProducts.map(p => (
                       <div key={p.id} className="py-5 flex items-center justify-between">
@@ -386,8 +416,8 @@ const App: React.FC = () => {
                           <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">{p.sku}</span>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => openStockAction(TransactionType.IN, p)} className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xl">+</button>
-                          <button onClick={() => openStockAction(TransactionType.OUT, p)} className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl font-black text-xl">-</button>
+                          <button onClick={() => openStockAction(TransactionType.IN, p)} className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xl hover:bg-emerald-500 hover:text-white transition-all">+</button>
+                          <button onClick={() => openStockAction(TransactionType.OUT, p)} className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl font-black text-xl hover:bg-amber-500 hover:text-white transition-all">-</button>
                         </div>
                       </div>
                     ))}
