@@ -95,21 +95,42 @@ const App: React.FC = () => {
   };
 
   const playChaChing = () => {
-    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const ctx = audioCtxRef.current!;
-    if (ctx.state === 'suspended') ctx.resume();
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(880, now);
-    osc.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(now + 0.3);
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = audioCtxRef.current!;
+      if (ctx.state === 'suspended') ctx.resume();
+      
+      const now = ctx.currentTime;
+      
+      // Primary Chime Tone
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, now); // A5
+      gain1.gain.setValueAtTime(0, now);
+      gain1.gain.linearRampToValueAtTime(0.12, now + 0.02);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      
+      // Higher Harmonic (The "Ring")
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1760, now + 0.08); // A6
+      gain2.gain.setValueAtTime(0, now + 0.08);
+      gain2.gain.linearRampToValueAtTime(0.08, now + 0.1);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      
+      osc1.start(now);
+      osc1.stop(now + 0.5);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.6);
+    } catch (e) {
+      console.warn("Audio feedback failed:", e);
+    }
   };
 
   const stats: InventoryStats = useMemo(() => {
@@ -149,6 +170,7 @@ const App: React.FC = () => {
       ? product.quantity + amount 
       : Math.max(0, product.quantity - amount);
 
+    // Play "Product Sell Out Tune" when stock goes out
     if (stockActionType === TransactionType.OUT && amount > 0) playChaChing();
     
     const updatedProduct = { 
@@ -441,21 +463,65 @@ const App: React.FC = () => {
                 }}>
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <input name="name" defaultValue={selectedProduct?.name} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" placeholder="Product Name" />
-                      <input name="sku" defaultValue={selectedProduct?.sku} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-mono" placeholder="SKU" />
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.productName}</label>
+                        <input name="name" defaultValue={selectedProduct?.name} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. iPhone 15 Pro Max" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.sku}</label>
+                        <input name="sku" defaultValue={selectedProduct?.sku} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-mono focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. SKU-1001" />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                      <input name="category" defaultValue={selectedProduct?.category} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" placeholder="Category" />
-                      <input name="boxNumber" defaultValue={selectedProduct?.boxNumber} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" placeholder="Box #" />
-                      <input name="threshold" type="number" defaultValue={selectedProduct?.minThreshold} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" placeholder="Alert Level" />
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.category}</label>
+                        <input name="category" defaultValue={selectedProduct?.category} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. Mobile" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.boxNumber}</label>
+                        <input name="boxNumber" defaultValue={selectedProduct?.boxNumber} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. B-12" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.minAlert}</label>
+                        <input name="threshold" type="number" defaultValue={selectedProduct?.minThreshold} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="e.g. 5" />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
-                      <input name="purchasePrice" type="number" step="0.01" defaultValue={selectedProduct?.purchasePrice} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" placeholder="Cost Price" />
-                      <input name="sellingPrice" type="number" step="0.01" defaultValue={selectedProduct?.sellingPrice} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold" placeholder="Sell Price" />
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest">{t.costPrice}</label>
+                          <button 
+                            type="button" 
+                            onClick={() => setFormShowCost(!formShowCost)} 
+                            className="text-[9px] font-black text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-md hover:bg-blue-100 transition-colors"
+                          >
+                            {formShowCost ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                        <input 
+                          name="purchasePrice" 
+                          type={formShowCost ? "number" : "password"} 
+                          step="0.01" 
+                          defaultValue={selectedProduct?.purchasePrice} 
+                          required 
+                          className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" 
+                          placeholder="0.00" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.sellPrice}</label>
+                        <input name="sellingPrice" type="number" step="0.01" defaultValue={selectedProduct?.sellingPrice} required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="0.00" />
+                      </div>
                     </div>
+                    {!selectedProduct && (
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.initialQty}</label>
+                        <input name="initialStock" type="number" required className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold focus:border-blue-500/30 outline-none transition-all" placeholder="0" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-4 mt-12">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-5 text-slate-400 font-black uppercase text-xs">{t.cancel}</button>
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-5 text-slate-400 font-black uppercase text-xs hover:text-slate-900 transition-colors">{t.cancel}</button>
                     <button type="submit" className="flex-1 px-6 py-5 bg-blue-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95">{t.save}</button>
                   </div>
                 </form>
