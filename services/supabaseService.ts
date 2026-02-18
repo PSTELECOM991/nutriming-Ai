@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Product, Transaction } from '../types';
+import { Product, Transaction } from '../types.ts';
 
 const SUPABASE_URL = 'https://njvgjkqozmcwvajnxmmh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qdmdqa3Fvem1jd3Zham54bW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMjIwMjcsImV4cCI6MjA4Njg5ODAyN30.Ovv6GScLAVD9cE3T0YHYB5jI9yKmaKUuLjfzQIm7oug';

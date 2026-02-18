@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Language, translations } from '../translations';
+import { Language, translations } from '../translations.ts';
 
 interface WelcomeProps {
   onEnter: () => void;

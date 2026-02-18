@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Product, Transaction, TransactionType, InventoryStats } from './types';
-import Dashboard from './components/Dashboard';
-import InventoryTable from './components/InventoryTable';
-import HistoryLog from './components/HistoryLog';
-import AIAnalysis from './components/AIAnalysis';
-import Welcome from './components/Welcome';
-import { getInventoryInsights, AIAnalysisResult } from './services/geminiService';
-import { supabase, fetchProducts, fetchTransactions, upsertProduct, logTransaction } from './services/supabaseService';
-import { translations, Language } from './translations';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Product, Transaction, TransactionType, InventoryStats } from './types.ts';
+import Dashboard from './components/Dashboard.tsx';
+import InventoryTable from './components/InventoryTable.tsx';
+import HistoryLog from './components/HistoryLog.tsx';
+import AIAnalysis from './components/AIAnalysis.tsx';
+import Welcome from './components/Welcome.tsx';
+import { getInventoryInsights, AIAnalysisResult } from './services/geminiService.ts';
+import { supabase, fetchProducts, fetchTransactions, upsertProduct, logTransaction } from './services/supabaseService.ts';
+import { translations, Language } from './translations.ts';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -92,10 +92,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const initData = async () => {
       setIsLoadingDB(true);
-      const [p, tx] = await Promise.all([fetchProducts(), fetchTransactions()]);
-      setProducts(p);
-      setTransactions(tx);
-      setIsLoadingDB(false);
+      try {
+        const [p, tx] = await Promise.all([fetchProducts(), fetchTransactions()]);
+        setProducts(p);
+        setTransactions(tx);
+      } catch (err) {
+        console.error("Initialization error:", err);
+      } finally {
+        setIsLoadingDB(false);
+      }
     };
     initData();
 
@@ -216,6 +221,7 @@ const App: React.FC = () => {
       setProducts(prev => prev.map(p => p.id === productId ? updatedProduct : p));
       setTransactions(prev => [newTx, ...prev]);
     } catch (e) {
+      console.error("Transaction processing error:", e);
       alert("Cloud Sync Error. Please check connection.");
     }
 
@@ -245,7 +251,10 @@ const App: React.FC = () => {
     try {
       await upsertProduct(finalProduct);
       setProducts(prev => selectedProduct ? prev.map(p => p.id === selectedProduct.id ? finalProduct : p) : [...prev, finalProduct]);
-    } catch (e) { alert("Failed to save to cloud."); }
+    } catch (e) { 
+      console.error("Save error:", e);
+      alert("Failed to save to cloud."); 
+    }
     setIsModalOpen(false);
     setSelectedProduct(null);
   };

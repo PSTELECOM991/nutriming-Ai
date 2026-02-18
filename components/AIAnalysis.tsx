@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { AIAnalysisResult } from '../services/geminiService';
-import { Language, translations } from '../translations';
+import { AIAnalysisResult } from '../services/geminiService.ts';
+import { Language, translations } from '../translations.ts';
 
 interface AIAnalysisProps {
   data: AIAnalysisResult | null;
@@ -34,14 +34,14 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ data, isLoading, onRefresh, isO
 
   if (!data || data.insights.length === 0) {
     return (
-      <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
-        <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+        <div className="bg-slate-50 dark:bg-slate-800 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
         </div>
-        <h3 className="text-lg font-bold text-slate-800">No Analysis Available</h3>
-        <p className="text-slate-500 max-w-xs mx-auto mt-2 mb-6">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Analysis Available</h3>
+        <p className="text-slate-500 dark:text-slate-400 max-w-xs mx-auto mt-2 mb-6">
           {isOnline 
             ? "Connect to the Gemini API to get intelligent insights about your stock." 
             : "Connect to the internet to enable Gemini AI insights."}
@@ -52,7 +52,7 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ data, isLoading, onRefresh, isO
           className={`px-6 py-2 rounded-xl font-bold transition-all shadow-lg ${
             isOnline 
             ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20' 
-            : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700'
           }`}
         >
           {isOnline ? t.reRunAnalysis : 'Internet Required'}
@@ -81,7 +81,7 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ data, isLoading, onRefresh, isO
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
@@ -89,28 +89,28 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ data, isLoading, onRefresh, isO
           </h3>
           <div className="grid grid-cols-1 gap-4">
             {data.insights.map((insight, idx) => (
-              <div key={idx} className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+              <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${
                   insight.priority === 'high' ? 'bg-red-500' : 
                   insight.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
                 }`} />
                 <div className="flex justify-between items-start mb-3">
                   <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${
-                    insight.category === 'risk' ? 'bg-red-50 text-red-600' :
-                    insight.category === 'opportunity' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                    insight.category === 'risk' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
+                    insight.category === 'opportunity' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                   }`}>
                     {insight.category}
                   </span>
                 </div>
-                <h4 className="text-lg font-bold text-slate-800 mb-2">{insight.title}</h4>
-                <p className="text-slate-600 text-sm mb-4 leading-relaxed">{insight.description}</p>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-blue-600 shadow-sm">
+                <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{insight.title}</h4>
+                <p className="text-slate-600 dark:text-slate-400 text-sm mb-4 leading-relaxed">{insight.description}</p>
+                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white dark:bg-slate-700 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                     </svg>
                   </div>
-                  <span className="text-xs font-bold text-slate-700">{insight.action}</span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{insight.action}</span>
                 </div>
               </div>
             ))}
@@ -118,17 +118,17 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ data, isLoading, onRefresh, isO
         </div>
 
         <div className="space-y-6">
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             {t.forecasting}
           </h3>
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
             {data.forecast?.map((f, idx) => (
-              <div key={idx} className="p-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+              <div key={idx} className="p-4 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                 <div className="flex justify-between items-center mb-1">
-                  <p className="font-bold text-slate-800 text-sm">{f.productName}</p>
+                  <p className="font-bold text-slate-800 dark:text-white text-sm">{f.productName}</p>
                   <span className={`text-[10px] font-bold uppercase ${
                     f.trend === 'increasing' ? 'text-emerald-600' :
                     f.trend === 'decreasing' ? 'text-red-600' : 'text-slate-500'
@@ -136,7 +136,7 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ data, isLoading, onRefresh, isO
                     {f.trend}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 leading-tight">{f.reasoning}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{f.reasoning}</p>
               </div>
             ))}
           </div>
@@ -146,8 +146,8 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ data, isLoading, onRefresh, isO
             disabled={!isOnline}
             className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold transition-all border ${
               isOnline 
-              ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200' 
-              : 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50'
+              ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700' 
+              : 'bg-slate-50 dark:bg-slate-900 text-slate-300 dark:text-slate-700 border-slate-100 dark:border-slate-800 cursor-not-allowed opacity-50'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

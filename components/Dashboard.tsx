@@ -4,8 +4,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie
 } from 'recharts';
-import { Product, InventoryStats } from '../types';
-import { Language, translations } from '../translations';
+import { Product, InventoryStats } from '../types.ts';
+import { Language, translations } from '../translations.ts';
 
 interface DashboardProps {
   products: Product[];

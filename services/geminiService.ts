@@ -1,9 +1,17 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { Product, Transaction } from "../types";
-import { Language } from "../translations";
 
-// Fix: Strictly follow @google/genai guidelines for client initialization using process.env.API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { GoogleGenAI, Type } from "@google/genai";
+import { Product, Transaction } from "../types.ts";
+import { Language } from "../translations.ts";
+
+// Initialize AI client lazily to avoid process.env reference errors at the module level
+let aiClient: GoogleGenAI | null = null;
+const getAIClient = () => {
+  if (!aiClient) {
+    const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : '';
+    aiClient = new GoogleGenAI({ apiKey: apiKey || '' });
+  }
+  return aiClient;
+};
 
 export interface AIAnalysisResult {
   summary: string;
@@ -23,6 +31,7 @@ export interface AIAnalysisResult {
 
 export const getInventoryInsights = async (products: Product[], transactions: Transaction[], lang: Language): Promise<AIAnalysisResult> => {
   const languageName = lang === 'bn' ? 'Bengali' : lang === 'hi' ? 'Hindi' : 'English';
+  const ai = getAIClient();
   
   const context = `
     Current Inventory Data: ${JSON.stringify(products.map(p => ({ 
@@ -44,7 +53,6 @@ export const getInventoryInsights = async (products: Product[], transactions: Tr
   `;
 
   try {
-    // Fix: Use ai.models.generateContent with both model name and prompt as per guidelines
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `You are an expert supply chain and financial analyst. Analyze the following inventory and transaction data. 
@@ -91,7 +99,6 @@ export const getInventoryInsights = async (products: Product[], transactions: Tr
       }
     });
 
-    // Fix: Access response.text as a property (not a method) as per @google/genai guidelines
     const result = JSON.parse(response.text || '{}');
     return {
       summary: result.summary || "Analysis complete.",
@@ -101,7 +108,7 @@ export const getInventoryInsights = async (products: Product[], transactions: Tr
   } catch (error) {
     console.error("Gemini Insight Error:", error);
     return {
-      summary: lang === 'en' ? "Could not generate analysis." : lang === 'bn' ? "বিশ্লেষণ তৈরি করা যায়নি।" : "विश्लेषण उत्पन्न नहीं किया जा सका।",
+      summary: lang === 'en' ? "Could not generate analysis." : lang === 'bn' ? "বিশ্লেষণ তৈরি করা যায়নি।" : "বিশ্লেষণ উৎপন্ন नहीं किया जा सका।",
       insights: []
     };
   }

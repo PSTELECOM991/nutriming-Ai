@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Product } from '../types';
-import { Language, translations } from '../translations';
+import { Product } from '../types.ts';
+import { Language, translations } from '../translations.ts';
 
 interface InventoryTableProps {
   products: Product[];
