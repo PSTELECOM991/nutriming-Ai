@@ -71,7 +71,18 @@ export const translations = {
     theme: "Theme",
     themeLight: "Light Mode",
     themeDark: "Dark Mode",
-    themeSystem: "System Default"
+    themeSystem: "System Default",
+    reports: "Reports",
+    allStockReport: "All Stock Report",
+    dailySaleReport: "Daily Sale Report",
+    dateWiseReport: "Date Wise Report",
+    generateReport: "Generate Report",
+    startDate: "Start Date",
+    endDate: "End Date",
+    totalSales: "Total Sales",
+    totalRevenue: "Total Revenue",
+    totalProfit: "Total Profit",
+    print: "Print Report"
   },
   bn: {
     appTitle: "ইনভেন্টরি মাস্টার",
@@ -142,7 +153,18 @@ export const translations = {
     theme: "থিম",
     themeLight: "লাইট মোড",
     themeDark: "ডার্ক মোড",
-    themeSystem: "সিস্টেম ডিফল্ট"
+    themeSystem: "সিস্টেম ডিফল্ট",
+    reports: "রিপোর্ট",
+    allStockReport: "সব স্টক রিপোর্ট",
+    dailySaleReport: "দৈনিক বিক্রয় রিপোর্ট",
+    dateWiseReport: "তারিখ অনুযায়ী রিপোর্ট",
+    generateReport: "রিপোর্ট তৈরি করুন",
+    startDate: "শুরুর তারিখ",
+    endDate: "শেষের তারিখ",
+    totalSales: "মোট বিক্রয়",
+    totalRevenue: "মোট রাজস্ব",
+    totalProfit: "মোট লাভ",
+    print: "রিপোর্ট প্রিন্ট করুন"
   },
   hi: {
     appTitle: "इन्वेंटरी मास्टर",
@@ -213,6 +235,17 @@ export const translations = {
     theme: "थीम",
     themeLight: "लाइट मोड",
     themeDark: "डार्क मोड",
-    themeSystem: "सिस्टम डिफॉल्ट"
+    themeSystem: "सिस्टम डिफॉल्ट",
+    reports: "रिपोर्ट",
+    allStockReport: "सभी स्टॉक रिपोर्ट",
+    dailySaleReport: "दैनिक बिक्री रिपोर्ट",
+    dateWiseReport: "तारीख वार रिपोर्ट",
+    generateReport: "रिपोर्ट तैयार करें",
+    startDate: "शुरू करने की तारीख",
+    endDate: "समाप्ति की तारीख",
+    totalSales: "कुल बिक्री",
+    totalRevenue: "कुल राजस्व",
+    totalProfit: "कुल लाभ",
+    print: "रिपोर्ट प्रिंट करें"
   }
 };
