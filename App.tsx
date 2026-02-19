@@ -10,7 +10,7 @@ import { getInventoryInsights, AIAnalysisResult } from './services/geminiService
 import { supabase, fetchProducts, fetchTransactions, upsertProduct, upsertProducts, logTransaction } from './services/supabaseService.ts';
 import { translations, Language } from './translations.ts';
 import { exportToCSV, parseCSV } from './services/csvService.ts';
-import { initDriveClient, authenticateDrive, uploadToDrive, downloadFromDrive, getUserInfo, logoutDrive } from './services/driveService.ts';
+import { initDriveClient, authenticateDrive, uploadToDrive, downloadFromDrive, getUserInfo, logoutDrive, isDriveConfigured } from './services/driveService.ts';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -155,15 +155,23 @@ const App: React.FC = () => {
   }, []);
 
   const handleDriveConnect = async () => {
+    if (!isDriveConfigured()) {
+      alert("Google Client ID is missing. Please set the VITE_GOOGLE_CLIENT_ID environment variable in AI Studio settings.");
+      return;
+    }
     try {
       setIsDriveLoading(true);
       await authenticateDrive();
       const user = await getUserInfo();
       setGoogleUser(user);
       setIsDriveConnected(true);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Drive auth failed:", e);
-      alert("Failed to connect to Google Drive. Check console for details.");
+      if (e?.error === 'invalid_client') {
+        alert("Invalid Google Client ID. Please check your VITE_GOOGLE_CLIENT_ID environment variable.");
+      } else {
+        alert("Failed to connect to Google Drive. Please ensure you have set up the Google Cloud Console correctly.");
+      }
     } finally {
       setIsDriveLoading(false);
     }

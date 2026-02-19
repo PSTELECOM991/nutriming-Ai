@@ -11,6 +11,8 @@ const BACKUP_FILENAME = 'InventoryMaster_Backup.json';
 let tokenClient: any = null;
 let accessToken: string | null = null;
 
+export const isDriveConfigured = () => !!CLIENT_ID;
+
 export const initDriveClient = () => {
   return new Promise<void>((resolve, reject) => {
     if (!(window as any).gapi) return reject('GAPI not loaded');
