@@ -17,3 +17,59 @@
 
 /* Ensure dark mode works with the .dark class */
 @variant dark (&:where(.dark, .dark *));
+
+@layer utilities {
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+
+    body {
+      background: white !important;
+      color: black !important;
+      visibility: hidden;
+    }
+
+    #printable-report {
+      visibility: visible;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      background: white !important;
+      color: black !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    #printable-report * {
+      visibility: visible;
+      color: black !important;
+      border-color: #e2e8f0 !important; /* slate-200 */
+      background-color: transparent !important;
+    }
+
+    /* Force light theme colors for print */
+    .dark #printable-report {
+      background: white !important;
+      color: black !important;
+    }
+    
+    .dark #printable-report * {
+      color: black !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Ensure table headers are visible */
+    #printable-report thead tr {
+      background-color: #f8fafc !important; /* slate-50 */
+    }
+
+    /* Page breaks */
+    #printable-report tr {
+      page-break-inside: avoid;
+    }
+  }
+}

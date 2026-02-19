@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, Transaction, TransactionType } from '../../types.ts';
 import { translations, Language } from '../../translations.ts';
 import { format } from 'date-fns';
+import { downloadCSV } from '../../services/csvService.ts';
 
 interface ReportsProps {
   products: Product[];
@@ -61,13 +62,42 @@ const Reports: React.FC<ReportsProps> = ({ products, transactions, lang }) => {
   }, [dateWiseTransactions]);
 
   const handlePrint = () => {
-    window.print();
+    try {
+      window.print();
+    } catch (e) {
+      console.error("Print failed:", e);
+      alert("Print failed. Please try using your browser's print menu (Ctrl+P or Cmd+P).");
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (activeReport === 'stock') {
+      const headers = ['SKU', 'Name', 'Category', 'Box', 'Stock', 'Cost', 'Sell', 'Total Value'];
+      const rows = products.map(p => [
+        p.sku, p.name, p.category, p.boxNumber, p.stock, p.costPrice, p.sellPrice, p.stock * p.costPrice
+      ]);
+      downloadCSV(headers, rows, 'stock_report');
+    } else if (activeReport === 'daily') {
+      const headers = ['Time', 'Product', 'Quantity', 'Price', 'Total'];
+      const rows = dailyTransactions.map(tr => {
+        const p = products.find(prod => prod.id === tr.productId);
+        return [format(tr.timestamp, 'HH:mm'), p?.name || 'Unknown', tr.quantity, tr.price, tr.quantity * tr.price];
+      });
+      downloadCSV(headers, rows, 'daily_sale_report');
+    } else {
+      const headers = ['Date', 'Type', 'Product', 'Quantity', 'Price'];
+      const rows = dateWiseTransactions.map(tr => {
+        const p = products.find(prod => prod.id === tr.productId);
+        return [format(tr.timestamp, 'yyyy-MM-dd HH:mm'), tr.type, p?.name || 'Unknown', tr.quantity, tr.price];
+      });
+      downloadCSV(headers, rows, 'date_wise_report');
+    }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       {/* Report Selector */}
-      <div className="flex flex-wrap gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit">
+      <div className="flex flex-wrap gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit no-print">
         <button
           onClick={() => setActiveReport('stock')}
           className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeReport === 'stock' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
@@ -90,7 +120,7 @@ const Reports: React.FC<ReportsProps> = ({ products, transactions, lang }) => {
 
       {/* Filters for Date Wise Report */}
       {activeReport === 'date' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 flex flex-wrap items-end gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 flex flex-wrap items-end gap-4 shadow-sm no-print">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.startDate}</label>
             <input
@@ -109,18 +139,34 @@ const Reports: React.FC<ReportsProps> = ({ products, transactions, lang }) => {
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
             />
           </div>
-          <button
-            onClick={handlePrint}
-            className="ml-auto flex items-center gap-2 px-6 py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all active:scale-95"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            {t.print}
-          </button>
+          <div className="ml-auto flex gap-2 no-print">
+            <button
+              onClick={handleDownloadCSV}
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-black hover:bg-emerald-700 transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              CSV
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              {t.print}
+            </button>
+          </div>
         </div>
       )}
 
       {activeReport !== 'date' && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2 no-print">
+          <button
+            onClick={handleDownloadCSV}
+            className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-black hover:bg-emerald-700 transition-all active:scale-95"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            CSV
+          </button>
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all active:scale-95"
@@ -143,9 +189,27 @@ const Reports: React.FC<ReportsProps> = ({ products, transactions, lang }) => {
                 {activeReport === 'date' ? `${startDate} to ${endDate}` : format(new Date(), 'PPPP')}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">PS Telecom</p>
-              <p className="text-xs font-bold text-slate-500 mt-1">Inventory Management System</p>
+            <div className="text-right flex flex-col items-end gap-2">
+              <div className="flex gap-2 no-print">
+                <button 
+                  onClick={handleDownloadCSV}
+                  className="p-2 bg-white dark:bg-slate-700 text-slate-400 hover:text-emerald-600 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm transition-all active:scale-90"
+                  title="Download CSV"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                </button>
+                <button 
+                  onClick={handlePrint}
+                  className="p-2 bg-white dark:bg-slate-700 text-slate-400 hover:text-blue-600 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm transition-all active:scale-90"
+                  title={t.print}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                </button>
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">PS Telecom</p>
+                <p className="text-xs font-bold text-slate-500 mt-1">Inventory Management System</p>
+              </div>
             </div>
           </div>
 
@@ -278,28 +342,6 @@ const Reports: React.FC<ReportsProps> = ({ products, transactions, lang }) => {
           </table>
         </div>
       </div>
-
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #printable-report, #printable-report * {
-            visibility: visible;
-          }
-          #printable-report {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            border: none;
-            box-shadow: none;
-          }
-          .no-print {
-            display: none;
-          }
-        }
-      `}</style>
     </div>
   );
 };
