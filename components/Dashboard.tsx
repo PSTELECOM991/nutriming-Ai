@@ -11,10 +11,14 @@ interface DashboardProps {
   products: Product[];
   stats: InventoryStats;
   lang: Language;
+  theme: 'light' | 'dark' | 'system';
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ products, stats, lang }) => {
+const Dashboard: React.FC<DashboardProps> = ({ products, stats, lang, theme }) => {
   const t = translations[lang];
+  
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  
   const chartData = products.slice(0, 8).map(p => ({
     name: p.name,
     qty: p.quantity,
@@ -40,27 +44,35 @@ const Dashboard: React.FC<DashboardProps> = ({ products, stats, lang }) => {
       </div>
 
       <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 md:gap-6">
-        <div className="lg:col-span-2 bg-white p-4 md:p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm md:text-lg font-bold mb-4 md:mb-6 text-slate-800">{t.inventory} {t.statsTotal}</h3>
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <h3 className="text-sm md:text-lg font-bold mb-4 md:mb-6 text-slate-800 dark:text-white">{t.inventory} {t.statsTotal}</h3>
           <div className="h-48 md:h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "#1e293b" : "#f1f5f9"} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px' }}
-                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: 'none', 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)', 
+                    fontSize: '10px',
+                    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                    color: isDark ? '#f8fafc' : '#1e293b'
+                  }}
+                  itemStyle={{ color: isDark ? '#f8fafc' : '#1e293b' }}
+                  cursor={{ fill: isDark ? '#1e293b' : '#f8fafc' }}
                 />
                 <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} name={t.tableHeaderStock} />
-                <Bar dataKey="min" fill="#cbd5e1" radius={[4, 4, 0, 0]} name={t.minAlert} />
+                <Bar dataKey="min" fill={isDark ? "#334155" : "#cbd5e1"} radius={[4, 4, 0, 0]} name={t.minAlert} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-4 md:p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center">
-          <h3 className="text-sm md:text-lg font-bold mb-4 text-slate-800 w-full text-left">{t.category}</h3>
+        <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center">
+          <h3 className="text-sm md:text-lg font-bold mb-4 text-slate-800 dark:text-white w-full text-left">{t.category}</h3>
           <div className="h-40 md:h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>

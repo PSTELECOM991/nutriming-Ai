@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
+import './index.css';
 
 // Polyfill for process.env which is required by some SDKs but missing in browser environments
 if (typeof window !== 'undefined' && !(window as any).process) {

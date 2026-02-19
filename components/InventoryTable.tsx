@@ -2,18 +2,51 @@
 import React, { useState } from 'react';
 import { Product } from '../types.ts';
 import { Language, translations } from '../translations.ts';
+import { exportToCSV, parseCSV } from '../services/csvService.ts';
 
 interface InventoryTableProps {
   products: Product[];
   onStockAction: (id: string, type: 'IN' | 'OUT') => void;
   onEdit: (product: Product) => void;
+  onImport?: (products: Product[]) => Promise<void>;
   lang: Language;
 }
 
-const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction, onEdit, lang }) => {
+const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction, onEdit, onImport, lang }) => {
   const t = translations[lang];
   const [searchTerm, setSearchTerm] = useState('');
   const [showCost, setShowCost] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleExport = () => {
+    exportToCSV(products);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onImport) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const importedProducts = parseCSV(text, products);
+
+        if (importedProducts.length > 0) {
+          await onImport(importedProducts);
+          alert(`Successfully imported ${importedProducts.length} products.`);
+        }
+      } catch (err) {
+        console.error("Import error:", err);
+        alert("Failed to import CSV. Please check the format.");
+      } finally {
+        setIsImporting(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const filtered = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -32,13 +65,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction
   };
 
   return (
-    <div className="bg-white rounded-2xl md:border border-slate-200 shadow-sm md:overflow-hidden overflow-visible">
-      <div className="p-4 md:border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl md:border border-slate-200 dark:border-slate-800 shadow-sm md:overflow-hidden overflow-visible">
+      <div className="p-4 md:border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3 self-start md:self-auto">
-          <h3 className="text-lg font-bold text-slate-800">{t.inventory}</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t.inventory}</h3>
           <button 
             onClick={() => setShowCost(!showCost)}
-            className={`p-1.5 rounded-lg transition-all ${showCost ? 'text-blue-600 bg-blue-50' : 'text-slate-400 bg-slate-50 hover:text-slate-600'}`}
+            className={`p-1.5 rounded-lg transition-all ${showCost ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'text-slate-400 bg-slate-50 dark:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300'}`}
             title={showCost ? "Hide" : "Show"}
           >
             {showCost ? (
@@ -48,29 +81,48 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction
             )}
           </button>
         </div>
-        <div className="relative w-full md:w-64">
-          <input
-            type="text"
-            placeholder={t.searchPlaceholder}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/10 text-sm transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <input
+              type="text"
+              placeholder={t.searchPlaceholder}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/10 text-sm dark:text-white transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          <div className="flex items-center gap-1.5">
+            <button 
+              onClick={handleExport}
+              className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
+              title={t.localExport}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              <span className="hidden lg:inline">{t.localExport}</span>
+            </button>
+            
+            <label className="cursor-pointer p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+              <input type="file" accept=".csv" className="hidden" onChange={handleImport} disabled={isImporting} />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+              <span className="hidden lg:inline">{isImporting ? '...' : t.localRestore}</span>
+            </label>
+          </div>
         </div>
       </div>
 
       <div className="md:hidden space-y-3 pt-2">
         {filtered.map(product => (
-          <div key={product.id} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col gap-3">
+          <div key={product.id} className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col gap-3">
             <div className="flex justify-between items-start">
               <div className="min-w-0 pr-2">
-                <h4 className="font-bold text-slate-800 text-sm truncate">{product.name}</h4>
+                <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{product.name}</h4>
                 <div className="flex items-center gap-2 mt-0.5">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{product.sku}</p>
-                  <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-black uppercase">{t.tableHeaderBox} {product.boxNumber}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded font-black uppercase">{t.tableHeaderBox} {product.boxNumber}</span>
                 </div>
               </div>
               <StatusBadge product={product} />
@@ -80,11 +132,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction
               <div className="flex gap-4">
                 <div>
                   <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">{t.tableHeaderStock}</p>
-                  <p className="text-sm font-bold text-slate-700 font-mono">{product.quantity}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200 font-mono">{product.quantity}</p>
                 </div>
                 <div>
                   <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">{t.tableHeaderSell}</p>
-                  <p className="text-sm font-bold text-slate-700">₹{product.sellingPrice.toLocaleString('en-IN')}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">₹{product.sellingPrice.toLocaleString('en-IN')}</p>
                 </div>
               </div>
               
@@ -116,7 +168,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
+            <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
               <th className="px-6 py-4">{t.tableHeaderProduct}</th>
               <th className="px-6 py-4">{t.tableHeaderBox}</th>
               <th className="px-6 py-4">{t.tableHeaderStatus}</th>
@@ -126,32 +178,32 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ products, onStockAction
               <th className="px-6 py-4 text-right">{t.tableHeaderActions}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {filtered.map((product) => (
-              <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
+              <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                 <td className="px-6 py-4">
-                  <div className="font-semibold text-slate-800">{product.name}</div>
+                  <div className="font-semibold text-slate-800 dark:text-white">{product.name}</div>
                   <div className="text-[10px] text-slate-400 font-mono tracking-tight uppercase">{product.sku}</div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-tight">
+                  <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black uppercase tracking-tight">
                     {product.boxNumber}
                   </span>
                 </td>
                 <td className="px-6 py-4">
                   <StatusBadge product={product} />
                 </td>
-                <td className="px-6 py-4 font-mono font-bold text-slate-700">
+                <td className="px-6 py-4 font-mono font-bold text-slate-700 dark:text-slate-200">
                   {product.quantity}
                 </td>
-                <td className="px-6 py-4 text-slate-500 font-medium text-sm">
+                <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-medium text-sm">
                   {showCost ? (
                     `₹${product.purchasePrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
                   ) : (
-                    <span className="text-slate-300 select-none tracking-widest font-black">₹ ••••</span>
+                    <span className="text-slate-300 dark:text-slate-700 select-none tracking-widest font-black">₹ ••••</span>
                   )}
                 </td>
-                <td className="px-6 py-4 text-slate-900 font-bold text-sm">
+                <td className="px-6 py-4 text-slate-900 dark:text-white font-bold text-sm">
                   ₹{product.sellingPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </td>
                 <td className="px-6 py-4 text-right">

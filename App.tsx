@@ -7,8 +7,10 @@ import HistoryLog from './components/HistoryLog.tsx';
 import AIAnalysis from './components/AIAnalysis.tsx';
 import Welcome from './components/Welcome.tsx';
 import { getInventoryInsights, AIAnalysisResult } from './services/geminiService.ts';
-import { supabase, fetchProducts, fetchTransactions, upsertProduct, logTransaction } from './services/supabaseService.ts';
+import { supabase, fetchProducts, fetchTransactions, upsertProduct, upsertProducts, logTransaction } from './services/supabaseService.ts';
 import { translations, Language } from './translations.ts';
+import { exportToCSV, parseCSV } from './services/csvService.ts';
+import { initDriveClient, authenticateDrive, uploadToDrive, downloadFromDrive } from './services/driveService.ts';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -43,6 +45,10 @@ const App: React.FC = () => {
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [finderQuery, setFinderQuery] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isDriveConnected, setIsDriveConnected] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isDriveLoading, setIsDriveLoading] = useState(false);
   
   const [globalShowCost, setGlobalShowCost] = useState(() => {
     return localStorage.getItem('global_show_cost') === 'true';
@@ -58,7 +64,15 @@ const App: React.FC = () => {
     const applyTheme = (t: 'light' | 'dark') => {
       root.classList.remove('light', 'dark');
       root.classList.add(t);
-      document.body.className = t === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900';
+      
+      // Update body colors without wiping out other classes
+      if (t === 'dark') {
+        document.body.classList.add('bg-slate-950', 'text-slate-100');
+        document.body.classList.remove('bg-slate-50', 'text-slate-900');
+      } else {
+        document.body.classList.add('bg-slate-50', 'text-slate-900');
+        document.body.classList.remove('bg-slate-950', 'text-slate-100');
+      }
     };
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -106,10 +120,10 @@ const App: React.FC = () => {
 
     const productSub = supabase
       .channel('db-changes')
-      .on('postgres_changes', { event: '*', table: 'products' }, async () => {
+      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'products' }, async () => {
         setProducts(await fetchProducts());
       })
-      .on('postgres_changes', { event: 'INSERT', table: 'transactions' }, async () => {
+      .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'transactions' }, async () => {
         setTransactions(await fetchTransactions());
       })
       .subscribe();
@@ -127,6 +141,91 @@ const App: React.FC = () => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    const initDrive = async () => {
+      try {
+        await initDriveClient();
+      } catch (e) {
+        console.warn("Drive client init failed (likely missing CLIENT_ID):", e);
+      }
+    };
+    initDrive();
+  }, []);
+
+  const handleDriveConnect = async () => {
+    try {
+      setIsDriveLoading(true);
+      await authenticateDrive();
+      setIsDriveConnected(true);
+    } catch (e) {
+      console.error("Drive auth failed:", e);
+      alert("Failed to connect to Google Drive. Check console for details.");
+    } finally {
+      setIsDriveLoading(false);
+    }
+  };
+
+  const handleDriveBackup = async () => {
+    if (!isDriveConnected) return;
+    try {
+      setIsBackingUp(true);
+      const backupData = {
+        products,
+        transactions,
+        timestamp: Date.now(),
+        version: '1.0'
+      };
+      await uploadToDrive(backupData);
+      alert("Backup successful!");
+    } catch (e) {
+      console.error("Backup failed:", e);
+      alert("Backup failed.");
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const handleDriveRestore = async () => {
+    if (!isDriveConnected) return;
+    if (!confirm("This will overwrite your current inventory. Continue?")) return;
+    try {
+      setIsRestoring(true);
+      const data = await downloadFromDrive();
+      if (data && data.products) {
+        await handleBulkImport(data.products);
+        alert("Restore successful!");
+      }
+    } catch (e) {
+      console.error("Restore failed:", e);
+      alert("Restore failed.");
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleLocalRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const importedProducts = parseCSV(text, products);
+        if (importedProducts.length > 0) {
+          await handleBulkImport(importedProducts);
+          alert(`Successfully imported ${importedProducts.length} products.`);
+        }
+      } catch (err) {
+        console.error("Import error:", err);
+        alert("Failed to import CSV.");
+      } finally {
+        e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleWelcomeFinish = () => {
     sessionStorage.setItem('ps_telecom_welcome_seen', 'true');
@@ -227,6 +326,16 @@ const App: React.FC = () => {
 
     setIsModalOpen(false);
     setSelectedProduct(null);
+  };
+
+  const handleBulkImport = async (importedProducts: Product[]) => {
+    try {
+      await upsertProducts(importedProducts);
+      // State will be updated by Supabase subscription
+    } catch (e) {
+      console.error("Bulk import error:", e);
+      alert("Failed to import products to cloud.");
+    }
   };
 
   const saveProduct = async (data: Partial<Product>) => {
@@ -342,8 +451,8 @@ const App: React.FC = () => {
             </div>
           ) : (
             <>
-              {activeTab === 'dashboard' && <Dashboard products={products} stats={stats} lang={lang} />}
-              {activeTab === 'inventory' && <InventoryTable products={products} onStockAction={(id, type) => openStockAction(type as TransactionType, products.find(p => p.id === id))} onEdit={(p) => openProductForm(p)} lang={lang} />}
+              {activeTab === 'dashboard' && <Dashboard products={products} stats={stats} lang={lang} theme={theme} />}
+              {activeTab === 'inventory' && <InventoryTable products={products} onStockAction={(id, type) => openStockAction(type as TransactionType, products.find(p => p.id === id))} onEdit={(p) => openProductForm(p)} onImport={handleBulkImport} lang={lang} />}
               {activeTab === 'history' && <HistoryLog transactions={transactions} lang={lang} />}
               {activeTab === 'analysis' && <AIAnalysis data={aiAnalysis} isLoading={isGeneratingInsights} onRefresh={runAnalysis} isOnline={isOnline} lang={lang} />}
               {activeTab === 'settings' && (
@@ -390,6 +499,84 @@ const App: React.FC = () => {
                             <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">{item.label}</span>
                           </button>
                         ))}
+                     </div>
+                   </div>
+
+                   <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-8 shadow-sm transition-colors">
+                     <div className="flex items-center gap-4 mb-8">
+                       <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10l8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                       </div>
+                       <div>
+                         <h3 className="text-xl font-black text-slate-900 dark:text-white">Data Management</h3>
+                         <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">Import, Export and Cloud Backups</p>
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                       <div className="space-y-4">
+                         <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Local Storage</p>
+                         <div className="flex flex-col gap-3">
+                           <button 
+                             onClick={() => exportToCSV(products)}
+                             className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-blue-500/30 transition-all group"
+                           >
+                             <div className="flex items-center gap-3">
+                               <div className="p-2 bg-white dark:bg-slate-700 rounded-lg text-slate-400 group-hover:text-blue-600 transition-colors">
+                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                               </div>
+                               <span className="font-bold text-slate-700 dark:text-slate-200">{t.localExport}</span>
+                             </div>
+                             <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                           </button>
+                           
+                           <label className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-blue-500/30 transition-all group cursor-pointer">
+                             <input type="file" accept=".csv" className="hidden" onChange={handleLocalRestore} />
+                             <div className="flex items-center gap-3">
+                               <div className="p-2 bg-white dark:bg-slate-700 rounded-lg text-slate-400 group-hover:text-emerald-600 transition-colors">
+                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                               </div>
+                               <span className="font-bold text-slate-700 dark:text-slate-200">{t.localRestore}</span>
+                             </div>
+                             <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                           </label>
+                         </div>
+                       </div>
+
+                       <div className="space-y-4">
+                         <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cloud Backup</p>
+                         <div className="flex flex-col gap-3">
+                           {!isDriveConnected ? (
+                             <button 
+                               onClick={handleDriveConnect}
+                               disabled={isDriveLoading}
+                               className="w-full flex items-center justify-center gap-3 p-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                             >
+                               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.532 2.47a1.18 1.18 0 0 0-1.064 0L2.342 7.58a1.18 1.18 0 0 0 0 2.04l9.126 5.11a1.18 1.18 0 0 0 1.064 0l9.126-5.11a1.18 1.18 0 0 0 0-2.04l-9.126-5.11zM11.468 15.47a1.18 1.18 0 0 1 1.064 0l9.126 5.11a1.18 1.18 0 0 1 0 2.04l-9.126 5.11a1.18 1.18 0 0 1-1.064 0l-9.126-5.11a1.18 1.18 0 0 1 0-2.04l9.126-5.11z"/></svg>
+                               <span className="font-bold">{isDriveLoading ? 'Connecting...' : t.connectDrive}</span>
+                             </button>
+                           ) : (
+                             <div className="grid grid-cols-2 gap-3">
+                               <button 
+                                 onClick={handleDriveBackup}
+                                 disabled={isBackingUp}
+                                 className="flex items-center justify-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all font-bold"
+                               >
+                                 {isBackingUp ? '...' : t.push}
+                               </button>
+                               <button 
+                                 onClick={handleDriveRestore}
+                                 disabled={isRestoring}
+                                 className="flex items-center justify-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all font-bold"
+                               >
+                                 {isRestoring ? '...' : t.pull}
+                               </button>
+                             </div>
+                           )}
+                           <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center font-medium">
+                             {isDriveConnected ? "✓ Google Drive Connected" : "Connect your Google account to enable cloud sync."}
+                           </p>
+                         </div>
+                       </div>
                      </div>
                    </div>
                 </div>

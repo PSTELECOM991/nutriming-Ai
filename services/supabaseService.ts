@@ -42,6 +42,14 @@ export const upsertProduct = async (product: Product) => {
   if (error) throw error;
 };
 
+export const upsertProducts = async (products: Product[]) => {
+  const { error } = await supabase
+    .from('products')
+    .upsert(products);
+  
+  if (error) throw error;
+};
+
 export const logTransaction = async (transaction: Transaction) => {
   const { error } = await supabase
     .from('transactions')
