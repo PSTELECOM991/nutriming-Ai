@@ -10,7 +10,7 @@ import { getInventoryInsights, AIAnalysisResult } from './services/geminiService
 import { supabase, fetchProducts, fetchTransactions, upsertProduct, upsertProducts, logTransaction } from './services/supabaseService.ts';
 import { translations, Language } from './translations.ts';
 import { exportToCSV, parseCSV } from './services/csvService.ts';
-import { initDriveClient, authenticateDrive, uploadToDrive, downloadFromDrive } from './services/driveService.ts';
+import { initDriveClient, authenticateDrive, uploadToDrive, downloadFromDrive, getUserInfo, logoutDrive } from './services/driveService.ts';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isDriveLoading, setIsDriveLoading] = useState(false);
+  const [googleUser, setGoogleUser] = useState<any>(null);
   
   const [globalShowCost, setGlobalShowCost] = useState(() => {
     return localStorage.getItem('global_show_cost') === 'true';
@@ -157,6 +158,8 @@ const App: React.FC = () => {
     try {
       setIsDriveLoading(true);
       await authenticateDrive();
+      const user = await getUserInfo();
+      setGoogleUser(user);
       setIsDriveConnected(true);
     } catch (e) {
       console.error("Drive auth failed:", e);
@@ -164,6 +167,12 @@ const App: React.FC = () => {
     } finally {
       setIsDriveLoading(false);
     }
+  };
+
+  const handleDriveLogout = () => {
+    logoutDrive();
+    setGoogleUser(null);
+    setIsDriveConnected(false);
   };
 
   const handleDriveBackup = async () => {
@@ -430,8 +439,9 @@ const App: React.FC = () => {
               {isProfileOpen && (
                 <div className="absolute right-0 mt-3 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
                   <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700 mb-1">
-                    <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Admin User</p>
-                    <p className="text-sm font-bold text-slate-800 dark:text-white">PS Telecom</p>
+                    <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{googleUser ? 'Google User' : 'Admin User'}</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-white">{googleUser ? googleUser.name : 'PS Telecom'}</p>
+                    {googleUser && <p className="text-[10px] text-slate-400 truncate">{googleUser.email}</p>}
                   </div>
                   <button onClick={() => { setActiveTab('settings'); setIsProfileOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -545,35 +555,51 @@ const App: React.FC = () => {
                        <div className="space-y-4">
                          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cloud Backup</p>
                          <div className="flex flex-col gap-3">
-                           {!isDriveConnected ? (
+                           {isDriveConnected ? (
+                             <div className="space-y-3">
+                               <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                 {googleUser?.picture ? (
+                                   <img src={googleUser.picture} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-700" referrerPolicy="no-referrer" />
+                                 ) : (
+                                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full flex items-center justify-center font-bold">G</div>
+                                 )}
+                                 <div className="flex-1 min-w-0">
+                                   <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{googleUser?.name || 'Connected'}</p>
+                                   <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{googleUser?.email}</p>
+                                 </div>
+                                 <button onClick={handleDriveLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                 </button>
+                               </div>
+                               <div className="grid grid-cols-2 gap-3">
+                                 <button 
+                                   onClick={handleDriveBackup}
+                                   disabled={isBackingUp}
+                                   className="flex items-center justify-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all font-bold"
+                                 >
+                                   {isBackingUp ? '...' : t.push}
+                                 </button>
+                                 <button 
+                                   onClick={handleDriveRestore}
+                                   disabled={isRestoring}
+                                   className="flex items-center justify-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all font-bold"
+                                 >
+                                   {isRestoring ? '...' : t.pull}
+                                 </button>
+                               </div>
+                             </div>
+                           ) : (
                              <button 
                                onClick={handleDriveConnect}
                                disabled={isDriveLoading}
                                className="w-full flex items-center justify-center gap-3 p-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
                              >
-                               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.532 2.47a1.18 1.18 0 0 0-1.064 0L2.342 7.58a1.18 1.18 0 0 0 0 2.04l9.126 5.11a1.18 1.18 0 0 0 1.064 0l9.126-5.11a1.18 1.18 0 0 0 0-2.04l-9.126-5.11zM11.468 15.47a1.18 1.18 0 0 1 1.064 0l9.126 5.11a1.18 1.18 0 0 1 0 2.04l-9.126 5.11a1.18 1.18 0 0 1-1.064 0l-9.126-5.11a1.18 1.18 0 0 1 0-2.04l9.126-5.11z"/></svg>
+                               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.532 2.47a1.18 1.18 0 0 0-1.064 0L2.342 7.58a1.18 1.18 0 0 0 0 2.04l9.126 5.11a1.18 1.18 0 0 0 1.064 0l9.126-5.11a1.18 1.18 0 0 0 0-2.04l-9.126-5.11zM11.468 15.47a1.18 1.18 0 0 1 1.064 0l9.126 5.11a1.18 1.18 0 0 1 0 2.04l-9.126-5.11a1.18 1.18 0 0 1-1.064 0l-9.126-5.11a1.18 1.18 0 0 1 0-2.04l9.126-5.11z"/></svg>
                                <span className="font-bold">{isDriveLoading ? 'Connecting...' : t.connectDrive}</span>
                              </button>
-                           ) : (
-                             <div className="grid grid-cols-2 gap-3">
-                               <button 
-                                 onClick={handleDriveBackup}
-                                 disabled={isBackingUp}
-                                 className="flex items-center justify-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-600 hover:text-white transition-all font-bold"
-                               >
-                                 {isBackingUp ? '...' : t.push}
-                               </button>
-                               <button 
-                                 onClick={handleDriveRestore}
-                                 disabled={isRestoring}
-                                 className="flex items-center justify-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all font-bold"
-                               >
-                                 {isRestoring ? '...' : t.pull}
-                               </button>
-                             </div>
                            )}
                            <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center font-medium">
-                             {isDriveConnected ? "✓ Google Drive Connected" : "Connect your Google account to enable cloud sync."}
+                             {isDriveConnected ? "✓ Google Account Authorized" : "Authorize your Google account to enable cloud sync."}
                            </p>
                          </div>
                        </div>

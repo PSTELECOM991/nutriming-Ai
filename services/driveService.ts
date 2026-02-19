@@ -4,8 +4,8 @@
  * Handles OAuth2 authentication and file operations for backups.
  */
 
-const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // Placeholder: Requires a real client ID from Google Console
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 const BACKUP_FILENAME = 'InventoryMaster_Backup.json';
 
 let tokenClient: any = null;
@@ -114,4 +114,21 @@ export const downloadFromDrive = async () => {
   });
   
   return response.result;
+};
+
+export const getUserInfo = async () => {
+  if (!accessToken) return null;
+  const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  return response.json();
+};
+
+export const logoutDrive = () => {
+  if (accessToken) {
+    (window as any).google.accounts.oauth2.revoke(accessToken, () => {
+      accessToken = null;
+    });
+  }
+  accessToken = null;
 };
